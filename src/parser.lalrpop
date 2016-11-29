@@ -1,0 +1,43 @@
+use std::str::FromStr;
+use systemf::{Type, Expr};
+use std::rc::Rc; 
+
+#[LALR]
+grammar;
+
+pub Expression: Expr = {
+    "lambda" <id:Identifier> ":" <t:Typ> "." <e:Expression> => Expr::Lam(id, t, Rc::new(e)),
+    "Lambda" <id:Identifier> "." <e:Expression> => Expr::TLam(id, Rc::new(e)),
+    "let" <id:Identifier> ":" <t:Typ> "=" <e1:Expression> "in" <e2:Expression> => Expr::Let(id, t, Rc::new(e1), Rc::new(e2)),
+    Factor
+};
+
+Factor: Expr = {
+    <l:Factor> <r:Term> => Expr::App(Rc::new(l), Rc::new(r)),
+    <l:Factor> "[" <r:Typ> "]" => Expr::TApp(Rc::new(l), r),
+    Term,
+};
+
+Term: Expr = {
+    <id:Identifier> => Expr::Var(id),
+    "(" <e:Expression> ")" => e,
+};
+
+Typ: Rc<Type> = {
+    "forall" <id:Identifier> "." <t:Typ> => Rc::new(Type::Forall(id, t)),
+    TFactor,
+};
+
+TFactor: Rc<Type> = {
+    <t1:TTerm> "->" <t2:TFactor> => Rc::new(Type::Fun(t1, t2)),
+    TTerm,
+};
+
+TTerm: Rc<Type> = {
+    <id:Identifier> => Rc::new(Type::Var(id)),
+    "(" <t:Typ> ")" => t,
+};
+
+Identifier: Rc<String> = {
+    r"[a-zA-Z][a-zA-Z0-9]*" => Rc::new(String::from(<>)),
+};

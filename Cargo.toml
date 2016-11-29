@@ -1,0 +1,16 @@
+[package]
+name = "systemf"
+version = "0.1.0"
+authors = ["eperdew <eperdew17@gmail.com>"]
+
+build = "build.rs" # LALRPOP preprocessing
+
+[dependencies]
+clippy = "*"
+
+# Add a dependency on the LALRPOP runtime library:
+[dependencies.lalrpop-util]
+version = "0.12.0"
+
+[build-dependencies.lalrpop]
+version = "0.12.0"
