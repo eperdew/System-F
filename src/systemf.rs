@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 
 type Id = String;
@@ -53,7 +54,7 @@ impl Expr {
             -> Result<Rc<Expr>, EvaluationError> {
         use self::EvaluationError::*;
 
-        match *e {
+        let result = match *e {
             Expr::Var(ref id) => {
                 match emap.get::<str>(id) {
                     Some(ref e) => Ok((*e).clone()),
@@ -94,6 +95,80 @@ impl Expr {
                 let desugared = Expr::TApp(Rc::new(Expr::TLam(X.clone(), e.clone())), t.clone());
                 Expr::eval_helper(Rc::new(desugared), emap, tmap)
             }
+        }?;
+
+        Expr::expand_types(result, tmap, &mut HashSet::new())
+    }
+
+    fn expand_types(e: Rc<Expr>, map: &HashMap<&str,Rc<Type>>, bvs: &mut HashSet<&str>) 
+    -> Result<Rc<Expr>,EvaluationError> {
+        match *e {
+            Expr::Var(_) => {
+                Ok(e.clone())
+            },
+            Expr::App(ref e1, ref e2) => {
+                let r1 = Expr::expand_types(e1.clone(), map, bvs)?;
+                let r2 = Expr::expand_types(e2.clone(), map, bvs)?;
+                Ok(Rc::new(Expr::App(r1,r2)))
+            },
+            Expr::TApp(ref e, ref t) => {
+                let re = Expr::expand_types(e.clone(), map, bvs)?;
+                let te = Type::eval(t.clone(), map, bvs)?;
+                Ok(Rc::new(Expr::TApp(re, te)))
+            },
+            Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                let r1 = Expr::expand_types(e1.clone(), map, bvs)?;
+                let r2 = Expr::expand_types(e2.clone(), map, bvs)?;
+                let te = Type::eval(t.clone(), map, bvs)?;
+                Ok(Rc::new(Expr::Let(x.clone(), te, r1, r2)))
+            },
+            Expr::TLet(ref X, ref t, ref e) => {
+                let te = Type::eval(t.clone(), map, bvs)?;
+                let mut new_bvs = bvs.clone();
+                new_bvs.insert(X);
+                let re = Expr::expand_types(e.clone(), map, &mut new_bvs)?;
+                Ok(Rc::new(Expr::TLet(X.clone(), te, re)))
+            },  
+            Expr::Lam(ref x, ref t, ref e) => {
+                let te = Type::eval(t.clone(), map, bvs)?;
+                let re = Expr::expand_types(e.clone(), map, bvs)?;
+                Ok(Rc::new(Expr::Lam(x.clone(), te, re)))
+            },
+            Expr::TLam(ref X, ref e) => {
+                let mut new_bvs = bvs.clone();
+                new_bvs.insert(X);
+                let re = Expr::expand_types(e.clone(), map, &mut new_bvs)?;
+                Ok(Rc::new(Expr::TLam(X.clone(), re)))
+            },
+        }
+    }
+}
+
+impl Type {
+    fn eval(t: Rc<Type>, map: &HashMap<&str,Rc<Type>>, bvs: &mut HashSet<&str>)
+    -> Result<Rc<Type>,EvaluationError> {
+        match *t {
+            Type::Var(ref id) => {
+                if bvs.contains::<str>(id) {
+                    Ok(t.clone())
+                } else {
+                    match map.get::<str>(id) {
+                        Some(ref t) => Type::eval((*t).clone(), map, bvs),
+                        None => Err(EvaluationError::UnboundVariable(id.clone())),
+                    }
+                }
+            },
+            Type::Fun(ref t1, ref t2) => {
+                let rt1 = Type::eval(t1.clone(), map, bvs)?;
+                let rt2 = Type::eval(t2.clone(), map, bvs)?;
+                Ok(Rc::new(Type::Fun(rt1, rt2)))
+            },
+            Type::Forall(ref id, ref t) => {
+                let mut new_bvs = bvs.clone();
+                new_bvs.insert(&**id);
+                let rt = Type::eval(t.clone(), map, &mut new_bvs)?;
+                Ok(Rc::new(Type::Forall(id.clone(), rt)))
+            },
         }
     }
 }

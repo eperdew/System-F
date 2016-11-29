@@ -1,0 +1,1 @@
+lambda x : forall Y . forall X . X . x

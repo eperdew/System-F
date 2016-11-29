@@ -38,3 +38,23 @@ fn test1() {
 
     assert_eq!(*result.unwrap(), sol);
 }
+
+#[test]
+fn test2() {
+    let expr: Expr = load_and_parse_expr("tests/test2.f");
+    let sol:  Expr = load_and_parse_expr("tests/test2_sol.f");
+
+    let result = expr.eval();
+
+    assert_eq!(*result.unwrap(), sol);
+}
+
+#[test]
+fn test3() {
+    let expr: Expr = load_and_parse_expr("tests/test3.f");
+    let sol:  Expr = load_and_parse_expr("tests/test3_sol.f");
+
+    let result = expr.eval();
+
+    assert_eq!(*result.unwrap(), sol);
+}
