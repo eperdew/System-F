@@ -20,14 +20,14 @@ impl fmt::Display for EvaluationError {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Var(Rc<Id>),
     Fun(Rc<Type>, Rc<Type>),
     Forall(Rc<Id>, Rc<Type>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
     Var(Rc<Id>),
     Lam(Rc<Id>, Rc<Type>, Rc<Expr>),
@@ -39,7 +39,11 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn eval(e: Rc<Expr>) -> Result<Rc<Expr>, EvaluationError> {
+    pub fn eval(self) -> Result<Rc<Expr>, EvaluationError> {
+        Expr::eval_expr(Rc::new(self))
+    }
+
+    pub fn eval_expr(e: Rc<Expr>) -> Result<Rc<Expr>, EvaluationError> {
         Expr::eval_helper(e, &mut HashMap::new(), &mut HashMap::new())
     }
 

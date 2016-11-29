@@ -5,7 +5,11 @@ use std::rc::Rc;
 #[LALR]
 grammar;
 
-pub Expression: Expr = {
+pub expr: Expr = {
+    Expression,
+};
+
+Expression: Expr = {
     "lambda" <id:Identifier> ":" <t:Typ> "." <e:Expression> => Expr::Lam(id, t, Rc::new(e)),
     "Lambda" <id:Identifier> "." <e:Expression> => Expr::TLam(id, Rc::new(e)),
     "let" <id:Identifier> ":" <t:Typ> "=" <e1:Expression> "in" <e2:Expression> => Expr::Let(id, t, Rc::new(e1), Rc::new(e2)),
