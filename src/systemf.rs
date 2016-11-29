@@ -35,10 +35,15 @@ pub enum Expr {
     TLam(Rc<Id>, Rc<Expr>),
     TApp(Rc<Expr>, Rc<Type>),
     Let(Rc<Id>, Rc<Type>, Rc<Expr>, Rc<Expr>),
+    TLet(Rc<Id>, Rc<Type>, Rc<Expr>),
 }
 
 impl Expr {
-    fn eval(e: Rc<Expr>,
+    pub fn eval(e: Rc<Expr>) -> Result<Rc<Expr>, EvaluationError> {
+        Expr::eval_helper(e, &mut HashMap::new(), &mut HashMap::new())
+    }
+
+    fn eval_helper(e: Rc<Expr>,
             emap: &mut HashMap<&str, Rc<Expr>>,
             tmap: &mut HashMap<&str, Rc<Type>>)
             -> Result<Rc<Expr>, EvaluationError> {
@@ -54,24 +59,24 @@ impl Expr {
             Expr::Lam(_, _, _) |
             Expr::TLam(_, _) => Ok(e.clone()),
             Expr::App(ref e1, ref e2) => {
-                let v1 = Expr::eval(e1.clone(), emap, tmap)?;
-                let v2 = Expr::eval(e2.clone(), emap, tmap)?;
+                let v1 = Expr::eval_helper(e1.clone(), emap, tmap)?;
+                let v2 = Expr::eval_helper(e2.clone(), emap, tmap)?;
                 match *v1 {
                     Expr::Lam(ref x, _, ref e3) => {
                         let mut new_map = emap.clone();
                         new_map.insert(x, e3.clone());
-                        Expr::eval(e2.clone(), &mut new_map, tmap)
+                        Expr::eval_helper(e2.clone(), &mut new_map, tmap)
                     },
                     _ => Err(IllformedExpression),
                 }
             }
             Expr::TApp(ref e, ref t) => {
-                let v = Expr::eval(e.clone(), emap, tmap)?;
+                let v = Expr::eval_helper(e.clone(), emap, tmap)?;
                 match *v {
                     Expr::TLam(ref x, ref e) => {
                         let mut new_map = tmap.clone();
                         new_map.insert(x, t.clone());
-                        Expr::eval(e.clone(), emap, &mut new_map)
+                        Expr::eval_helper(e.clone(), emap, &mut new_map)
                     },
                     _ => Err(IllformedExpression),
                 } 
@@ -79,8 +84,12 @@ impl Expr {
             Expr::Let(ref x, ref t, ref e1, ref e2) => {
                 let desugared = Expr::App(Rc::new(Expr::Lam(x.clone(), t.clone(), e2.clone())),
                                           e1.clone());
-                Expr::eval(Rc::new(desugared), emap, tmap)
+                Expr::eval_helper(Rc::new(desugared), emap, tmap)
             },
+            Expr::TLet(ref X, ref t, ref e) => {
+                let desugared = Expr::TApp(Rc::new(Expr::TLam(X.clone(), e.clone())), t.clone());
+                Expr::eval_helper(Rc::new(desugared), emap, tmap)
+            }
         }
     }
 }
