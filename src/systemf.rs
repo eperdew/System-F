@@ -184,16 +184,19 @@ impl Expr {
         tmap: &HashMap<&str,&Type>,
         bvs: &HashSet<&str>) -> Option<Type> {
         match *self {
-            Expr::Var(ref id) => {
-                emap.get::<str>(&**id).map(|t| { (*t).clone() } )
+            Expr::Var(ref x) => {
+                // x : t |- x : t
+                emap.get::<str>(&**x).map(|t| { (*t).clone() } )
             },
             Expr::Lam(ref x, ref t, ref e) => {
+                // x : t |- e : t' => |- \x.e : t -> t'
                 let mut new_emap = emap.clone();
                 new_emap.insert(x, t);
                 let tbod = e.type_check_helper(&new_emap, tmap, bvs);
                 tbod.map(|tb| { Type::Fun((*t).clone(), Rc::new(tb)) })
             },
             Expr::App(ref e1, ref e2) => {
+                // e1 : t -> t', e2 : t |- e1 e2 : t'  
                 let t1 = e1.type_check_helper(emap, tmap, bvs);
                 let t2 = e2.type_check_helper(emap, tmap, bvs);
                 match t1 {
@@ -212,35 +215,32 @@ impl Expr {
                 }
             },
             Expr::TLam(ref X, ref e) => {
+                // X typ |- e : t => |- \/X.e : forall X, t
                 let mut new_bvs = bvs.clone();
                 new_bvs.insert(X);
                 e.type_check_helper(emap, tmap, &new_bvs)
                     .map(|t| { Type::Forall((*X).clone(),Rc::new(t)) })
             },
             Expr::TApp(ref e, ref t) => {
+                // |- e : \/X.t => |- e [t'] : t[t'/X] 
                 let t1 = e.type_check_helper(emap, tmap, bvs);
                 match t1 {
                     Some(Type::Forall(X,t2)) => {
-                        let mut new_tmap = tmap.clone();
-                        new_tmap.insert(&*X, t);
-                        let new_tmap = {
-                            let mut map: HashMap<&str,Rc<Type>> = HashMap::new();
-                            for (k,v) in new_tmap {
-                                map.insert(k, Rc::new((*v).clone()));
-                            }
-                            map
-                        };
+                        let mut new_tmap: HashMap<&str,Rc<Type>> = HashMap::new();
+                        new_tmap.insert(&*X, (*t).clone());
                         Some((*Type::eval(t2, &new_tmap, bvs).unwrap()).clone())
                     },
                     _ => None,
                 }
             },
             Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                // let x:t = e1 in e2 gets desugared to (\x:t.e2) e1
                 (Expr::App(
                     Rc::new(Expr::Lam(x.clone(),t.clone(),e2.clone())),
                     e1.clone())).type_check_helper(emap, tmap, bvs)
             },
             Expr::TLet(ref X, ref t, ref e) => {
+                // let X = t in e gets desugared to (/\X.e) [t]
                 (Expr::TApp(
                     Rc::new(Expr::TLam(X.clone(),e.clone())),
                     t.clone())).type_check_helper(emap, tmap, bvs)
@@ -279,7 +279,7 @@ impl Type {
     }
 
     fn alpha_equiv(t1: &Type, t2: &Type) -> bool {
-        // TODO
-        unimplemented!()
+        //TODO
+        true
     }
 }
