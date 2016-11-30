@@ -238,7 +238,7 @@ impl Expr {
             Expr::Let(ref x, ref t, ref e1, ref e2) => {
                 (Expr::App(
                     Rc::new(Expr::Lam(x.clone(),t.clone(),e2.clone())),
-                    e2.clone())).type_check_helper(emap, tmap, bvs)
+                    e1.clone())).type_check_helper(emap, tmap, bvs)
             },
             Expr::TLet(ref X, ref t, ref e) => {
                 (Expr::TApp(
