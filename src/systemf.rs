@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::borrow::BorrowMut;
 use std::fmt;
+use std::fmt::Display;
 
 type Id = String;
 
@@ -29,6 +30,16 @@ pub enum Type {
     Forall(Rc<Id>, Rc<Type>),
 }
 
+impl Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Type::Var(ref x) => write!(f,"{}",x),
+            Type::Fun(ref a, ref b) => write!(f,"({}) -> {}",a,b),
+            Type::Forall(ref x, ref t) => write!(f,"(forall {}. {})", x, t),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
     Var(Rc<Id>),
@@ -38,6 +49,20 @@ pub enum Expr {
     TApp(Rc<Expr>, Rc<Type>),
     Let(Rc<Id>, Rc<Type>, Rc<Expr>, Rc<Expr>),
     TLet(Rc<Id>, Rc<Type>, Rc<Expr>),
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Expr::Var(ref x) => write!(f,"{}",x),
+            Expr::Lam(ref x, ref t, ref e) => write!(f,"(\\{}:{}.{})",x,t,e),
+            Expr::App(ref e1, ref e2) => write!(f,"({} {})",e1,e2),
+            Expr::TLam(ref X, ref e) => write!(f,"(/\\{}.{})",X,e),
+            Expr::TApp(ref e, ref t) => write!(f,"({} [{}])",e,t),
+            Expr::Let(ref x, ref t, ref e1, ref e2) => write!(f,"(let {}:{} = {} in {})",x,t,e1,e2),
+            Expr::TLet(ref X, ref t, ref e) => write!(f,"(Let {} = {} in {})",X,t,e),
+        }
+    }
 }
 
 impl Expr {
@@ -163,10 +188,10 @@ impl Expr {
                 emap.get::<str>(&**id).map(|t| { (*t).clone() } )
             },
             Expr::Lam(ref x, ref t, ref e) => {
-                let mut new_tmap = tmap.clone();
-                new_tmap.insert(x, t);
-                let tbod = e.type_check_helper(emap, &new_tmap, bvs);
-                tbod.map(|tb| { Type::Fun(Rc::new((**t).clone()), Rc::new(tb)) })
+                let mut new_emap = emap.clone();
+                new_emap.insert(x, t);
+                let tbod = e.type_check_helper(&new_emap, tmap, bvs);
+                tbod.map(|tb| { Type::Fun((*t).clone(), Rc::new(tb)) })
             },
             Expr::App(ref e1, ref e2) => {
                 let t1 = e1.type_check_helper(emap, tmap, bvs);

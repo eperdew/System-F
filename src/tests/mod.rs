@@ -65,7 +65,11 @@ fn test1_typecheck() {
 
     let result = expr.type_check();
 
-    println!("{:?}\nhas type:\n{:?}",expr, result);
+    assert!(result.is_some());
+
+    if let Some(res) = result {
+        println!("{}\nhas type:\n{}",expr, res);
+    }
 }
 
 #[test]
@@ -74,7 +78,11 @@ fn test2_typecheck() {
     
     let result = expr.type_check();
 
-    println!("{:?}\nhas type:\n{:?}",expr, result);
+    assert!(result.is_some());
+    
+    if let Some(res) = result {
+        println!("{}\nhas type:\n{}",expr, res);
+    }
 }
 
 #[test]
@@ -83,7 +91,11 @@ fn test3_typecheck() {
     
     let result = expr.type_check();
 
-    println!("{:?}\nhas type:\n{:?}",expr, result);
+    assert!(result.is_some());
+
+    if let Some(res) = result {
+        println!("{}\nhas type:\n{}",expr, res);
+    }
 }
 
 #[test]
@@ -92,5 +104,9 @@ fn test4_typecheck() {
     
     let result = expr.type_check();
 
-    println!("{:?}\nhas type:\n{:?}",expr, result);
+    assert!(result.is_some());
+
+    if let Some(res) = result {
+        println!("{}\nhas type:\n{}",expr, res);
+    }
 }
