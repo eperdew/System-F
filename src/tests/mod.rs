@@ -30,7 +30,7 @@ pub fn load_and_parse_expr(filename: &str) -> Expr {
 }
 
 #[test]
-fn test1() {
+fn test1_eval() {
     let expr: Expr = load_and_parse_expr("tests/test1.f");
     let sol:  Expr = load_and_parse_expr("tests/test1_sol.f");
 
@@ -40,7 +40,7 @@ fn test1() {
 }
 
 #[test]
-fn test2() {
+fn test2_eval() {
     let expr: Expr = load_and_parse_expr("tests/test2.f");
     let sol:  Expr = load_and_parse_expr("tests/test2_sol.f");
 
@@ -50,11 +50,47 @@ fn test2() {
 }
 
 #[test]
-fn test3() {
+fn test3_eval() {
     let expr: Expr = load_and_parse_expr("tests/test3.f");
     let sol:  Expr = load_and_parse_expr("tests/test3_sol.f");
 
     let result = expr.eval();
 
     assert_eq!(*result.unwrap(), sol);
+}
+
+#[test]
+fn test1_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/test1.f");
+
+    let result = expr.type_check();
+
+    println!("{:?}\nhas type:\n{:?}",expr, result);
+}
+
+#[test]
+fn test2_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/test2.f");
+    
+    let result = expr.type_check();
+
+    println!("{:?}\nhas type:\n{:?}",expr, result);
+}
+
+#[test]
+fn test3_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/test3.f");
+    
+    let result = expr.type_check();
+
+    println!("{:?}\nhas type:\n{:?}",expr, result);
+}
+
+#[test]
+fn test4_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/test4.f");
+    
+    let result = expr.type_check();
+
+    println!("{:?}\nhas type:\n{:?}",expr, result);
 }

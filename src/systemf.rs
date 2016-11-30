@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::borrow::BorrowMut;
 use std::fmt;
 
 type Id = String;
@@ -40,14 +41,19 @@ pub enum Expr {
 }
 
 impl Expr {
+    /// Evaluates an expression and returns either the normal form or an error
+    /// if it is illformed
     pub fn eval(self) -> Result<Rc<Expr>, EvaluationError> {
         Expr::eval_expr(Rc::new(self))
     }
 
+    /// Evaluates an expression and returns either the normal form or an error 
+    /// if it is illformed
     pub fn eval_expr(e: Rc<Expr>) -> Result<Rc<Expr>, EvaluationError> {
         Expr::eval_helper(e, &mut HashMap::new(), &mut HashMap::new())
     }
 
+    /// Workhorse for `eval` and `eval_expr` 
     fn eval_helper(e: Rc<Expr>,
             emap: &mut HashMap<&str, Rc<Expr>>,
             tmap: &mut HashMap<&str, Rc<Type>>)
@@ -100,6 +106,7 @@ impl Expr {
         Expr::expand_types(result, tmap, &mut HashSet::new())
     }
 
+    /// Recursively expand the free variables of the types of the expression 
     fn expand_types(e: Rc<Expr>, map: &HashMap<&str,Rc<Type>>, bvs: &mut HashSet<&str>) 
     -> Result<Rc<Expr>,EvaluationError> {
         match *e {
@@ -142,10 +149,84 @@ impl Expr {
             },
         }
     }
+
+    pub fn type_check(&self) -> Option<Type> {
+        self.type_check_helper(&HashMap::new(), &HashMap::new(), &HashSet::new())
+    }
+
+    fn type_check_helper(&self, 
+        emap: &HashMap<&str,&Type>, 
+        tmap: &HashMap<&str,&Type>,
+        bvs: &HashSet<&str>) -> Option<Type> {
+        match *self {
+            Expr::Var(ref id) => {
+                emap.get::<str>(&**id).map(|t| { (*t).clone() } )
+            },
+            Expr::Lam(ref x, ref t, ref e) => {
+                let mut new_tmap = tmap.clone();
+                new_tmap.insert(x, t);
+                let tbod = e.type_check_helper(emap, &new_tmap, bvs);
+                tbod.map(|tb| { Type::Fun(Rc::new((**t).clone()), Rc::new(tb)) })
+            },
+            Expr::App(ref e1, ref e2) => {
+                let t1 = e1.type_check_helper(emap, tmap, bvs);
+                let t2 = e2.type_check_helper(emap, tmap, bvs);
+                match t1 {
+                    Some(Type::Fun(ta,tb)) => match t2 {
+                        Some(tc) => {
+                            if Type::alpha_equiv(&ta,&tc) {
+                                Some((*tb).clone())
+                            }
+                            else {
+                                None
+                            }
+                        },
+                        _ => None,
+                    },
+                    _ => None,
+                }
+            },
+            Expr::TLam(ref X, ref e) => {
+                let mut new_bvs = bvs.clone();
+                new_bvs.insert(X);
+                e.type_check_helper(emap, tmap, &new_bvs)
+                    .map(|t| { Type::Forall((*X).clone(),Rc::new(t)) })
+            },
+            Expr::TApp(ref e, ref t) => {
+                let t1 = e.type_check_helper(emap, tmap, bvs);
+                match t1 {
+                    Some(Type::Forall(X,t2)) => {
+                        let mut new_tmap = tmap.clone();
+                        new_tmap.insert(&*X, t);
+                        let new_tmap = {
+                            let mut map: HashMap<&str,Rc<Type>> = HashMap::new();
+                            for (k,v) in new_tmap {
+                                map.insert(k, Rc::new((*v).clone()));
+                            }
+                            map
+                        };
+                        Some((*Type::eval(t2, &new_tmap, bvs).unwrap()).clone())
+                    },
+                    _ => None,
+                }
+            },
+            Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                (Expr::App(
+                    Rc::new(Expr::Lam(x.clone(),t.clone(),e2.clone())),
+                    e2.clone())).type_check_helper(emap, tmap, bvs)
+            },
+            Expr::TLet(ref X, ref t, ref e) => {
+                (Expr::TApp(
+                    Rc::new(Expr::TLam(X.clone(),e.clone())),
+                    t.clone())).type_check_helper(emap, tmap, bvs)
+            },
+        }
+    }
 }
 
 impl Type {
-    fn eval(t: Rc<Type>, map: &HashMap<&str,Rc<Type>>, bvs: &mut HashSet<&str>)
+    /// Recursively expand the free variables of a type using the given map
+    fn eval(t: Rc<Type>, map: &HashMap<&str,Rc<Type>>, bvs: &HashSet<&str>)
     -> Result<Rc<Type>,EvaluationError> {
         match *t {
             Type::Var(ref id) => {
@@ -170,5 +251,10 @@ impl Type {
                 Ok(Rc::new(Type::Forall(id.clone(), rt)))
             },
         }
+    }
+
+    fn alpha_equiv(t1: &Type, t2: &Type) -> bool {
+        // TODO
+        unimplemented!()
     }
 }

@@ -6,10 +6,13 @@ pub mod systemf;
 pub mod parser;
 pub mod tests;
 
+use systemf::Expr;
+use tests::load_and_parse_expr;
+
 fn main() {
-    let expr = tests::load_and_parse_expr("tests/test1.f");
+    let expr: Expr = load_and_parse_expr("tests/test4.f");
+    
+    let result = expr.type_check();
 
-    let result = expr.eval().unwrap();
-
-    println!("{:?}", result);
+    println!("{:?}\nhas type:\n{:?}",expr, result);
 }

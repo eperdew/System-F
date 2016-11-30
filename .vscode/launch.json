@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "SystemF",
+            "type": "lldb-mi",
+            "request": "launch",
+            "target": "./target/debug/build/systemf-e2d59e108d5c615b/build-script-build",
+            "cwd": "${workspaceRoot}"
+        }
+    ]
+}
