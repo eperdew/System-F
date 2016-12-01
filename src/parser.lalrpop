@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use systemf::{Type, Expr};
-use std::rc::Rc; 
+use std::rc::Rc;
 
 #[LALR]
 grammar;
@@ -10,16 +10,16 @@ pub expr: Expr = {
 };
 
 Expression: Expr = {
-    "lambda" <id:Identifier> ":" <t:Typ> "." <e:Expression> => Expr::Lam(id, t, Rc::new(e)),
-    "Lambda" <id:Identifier> "." <e:Expression> => Expr::TLam(id, Rc::new(e)),
-    "let" <id:Identifier> ":" <t:Typ> "=" <e1:Expression> "in" <e2:Expression> => Expr::Let(id, t, Rc::new(e1), Rc::new(e2)),
-    "Let" <id:Identifier> "=" <t:Typ> "in" <e:Expression> => Expr::TLet(id, t, Rc::new(e)),
+    "lambda" <id:Identifier> ":" <t:Typ> "." <e:Expression> => Expr::Lam(id, t, Box::new(e)),
+    "Lambda" <id:Identifier> "." <e:Expression> => Expr::TLam(id, Box::new(e)),
+    "let" <id:Identifier> ":" <t:Typ> "=" <e1:Expression> "in" <e2:Expression> => Expr::Let(id, t, Box::new(e1), Box::new(e2)),
+    "Let" <id:Identifier> "=" <t:Typ> "in" <e:Expression> => Expr::TLet(id, t, Box::new(e)),
     Factor
 };
 
 Factor: Expr = {
-    <l:Factor> <r:Term> => Expr::App(Rc::new(l), Rc::new(r)),
-    <l:Factor> "[" <r:Typ> "]" => Expr::TApp(Rc::new(l), r),
+    <l:Factor> <r:Term> => Expr::App(Box::new(l), Box::new(r)),
+    <l:Factor> "[" <r:Typ> "]" => Expr::TApp(Box::new(l), r),
     Term,
 };
 
@@ -28,21 +28,21 @@ Term: Expr = {
     "(" <e:Expression> ")" => e,
 };
 
-Typ: Rc<Type> = {
-    "forall" <id:Identifier> "." <t:Typ> => Rc::new(Type::Forall(id, t)),
+Typ: Box<Type> = {
+    "forall" <id:Identifier> "." <t:Typ> => Box::new(Type::Forall(id, t)),
     TFactor,
 };
 
-TFactor: Rc<Type> = {
-    <t1:TTerm> "->" <t2:TFactor> => Rc::new(Type::Fun(t1, t2)),
+TFactor: Box<Type> = {
+    <t1:TTerm> "->" <t2:TFactor> => Box::new(Type::Fun(t1, t2)),
     TTerm,
 };
 
-TTerm: Rc<Type> = {
-    <id:Identifier> => Rc::new(Type::Var(id)),
+TTerm: Box<Type> = {
+    <id:Identifier> => Box::new(Type::Var(id)),
     "(" <t:Typ> ")" => t,
 };
 
-Identifier: Rc<String> = {
-    r"[a-zA-Z][a-zA-Z0-9]*" => Rc::new(String::from(<>)),
+Identifier: String = {
+    r"[a-zA-Z][a-zA-Z0-9]*" => String::from(<>),
 };

@@ -5,7 +5,7 @@
             "name": "SystemF",
             "type": "lldb-mi",
             "request": "launch",
-            "target": "./target/debug/build/systemf-e2d59e108d5c615b/build-script-build",
+            "target": "./target/debug/systemf",
             "cwd": "${workspaceRoot}"
         }
     ]

@@ -2,6 +2,8 @@ use std::str::FromStr;
 use systemf::{Type, Expr};
 use std::rc::Rc;
 extern crate lalrpop_util as __lalrpop_util;
+#[allow(clippy)]
+#[allow(warning)]
 
 mod __parse__expr {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports)]
@@ -30,11 +32,11 @@ mod __parse__expr {
         Termerror(__lalrpop_util::ErrorRecovery<usize, (usize, &'input str), ()>),
         NtExpression(Expr),
         NtFactor(Expr),
-        NtIdentifier(Rc<String>),
-        NtTFactor(Rc<Type>),
-        NtTTerm(Rc<Type>),
+        NtIdentifier(String),
+        NtTFactor(Box<Type>),
+        NtTTerm(Box<Type>),
         NtTerm(Expr),
-        NtTyp(Rc<Type>),
+        NtTyp(Box<Type>),
         Nt____expr(Expr),
         Ntexpr(Expr),
     }
@@ -877,7 +879,7 @@ mod __parse__expr {
       'input,
     >(
         __symbols: &mut ::std::vec::Vec<(usize,__Symbol<'input>,usize)>
-    ) -> (usize, Rc<String>, usize) {
+    ) -> (usize, String, usize) {
         match __symbols.pop().unwrap() {
             (__l, __Symbol::NtIdentifier(__v), __r) => (__l, __v, __r),
             _ => panic!("symbol type mismatch")
@@ -887,7 +889,7 @@ mod __parse__expr {
       'input,
     >(
         __symbols: &mut ::std::vec::Vec<(usize,__Symbol<'input>,usize)>
-    ) -> (usize, Rc<Type>, usize) {
+    ) -> (usize, Box<Type>, usize) {
         match __symbols.pop().unwrap() {
             (__l, __Symbol::NtTFactor(__v), __r) => (__l, __v, __r),
             _ => panic!("symbol type mismatch")
@@ -897,7 +899,7 @@ mod __parse__expr {
       'input,
     >(
         __symbols: &mut ::std::vec::Vec<(usize,__Symbol<'input>,usize)>
-    ) -> (usize, Rc<Type>, usize) {
+    ) -> (usize, Box<Type>, usize) {
         match __symbols.pop().unwrap() {
             (__l, __Symbol::NtTTerm(__v), __r) => (__l, __v, __r),
             _ => panic!("symbol type mismatch")
@@ -917,7 +919,7 @@ mod __parse__expr {
       'input,
     >(
         __symbols: &mut ::std::vec::Vec<(usize,__Symbol<'input>,usize)>
-    ) -> (usize, Rc<Type>, usize) {
+    ) -> (usize, Box<Type>, usize) {
         match __symbols.pop().unwrap() {
             (__l, __Symbol::NtTyp(__v), __r) => (__l, __v, __r),
             _ => panic!("symbol type mismatch")
@@ -1982,14 +1984,14 @@ pub fn __action2<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, t, _): (usize, Rc<Type>, usize),
+    (_, t, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, e, _): (usize, Expr, usize),
 ) -> Expr
 {
-    Expr::Lam(id, t, Rc::new(e))
+    Expr::Lam(id, t, Box::new(e))
 }
 
 #[allow(unused_variables)]
@@ -1998,12 +2000,12 @@ pub fn __action3<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, e, _): (usize, Expr, usize),
 ) -> Expr
 {
-    Expr::TLam(id, Rc::new(e))
+    Expr::TLam(id, Box::new(e))
 }
 
 #[allow(unused_variables)]
@@ -2012,16 +2014,16 @@ pub fn __action4<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, t, _): (usize, Rc<Type>, usize),
+    (_, t, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, e1, _): (usize, Expr, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, e2, _): (usize, Expr, usize),
 ) -> Expr
 {
-    Expr::Let(id, t, Rc::new(e1), Rc::new(e2))
+    Expr::Let(id, t, Box::new(e1), Box::new(e2))
 }
 
 #[allow(unused_variables)]
@@ -2030,14 +2032,14 @@ pub fn __action5<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, t, _): (usize, Rc<Type>, usize),
+    (_, t, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
     (_, e, _): (usize, Expr, usize),
 ) -> Expr
 {
-    Expr::TLet(id, t, Rc::new(e))
+    Expr::TLet(id, t, Box::new(e))
 }
 
 #[allow(unused_variables)]
@@ -2060,7 +2062,7 @@ pub fn __action7<
     (_, r, _): (usize, Expr, usize),
 ) -> Expr
 {
-    Expr::App(Rc::new(l), Rc::new(r))
+    Expr::App(Box::new(l), Box::new(r))
 }
 
 #[allow(unused_variables)]
@@ -2070,11 +2072,11 @@ pub fn __action8<
     input: &'input str,
     (_, l, _): (usize, Expr, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, r, _): (usize, Rc<Type>, usize),
+    (_, r, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
 ) -> Expr
 {
-    Expr::TApp(Rc::new(l), r)
+    Expr::TApp(Box::new(l), r)
 }
 
 #[allow(unused_variables)]
@@ -2093,7 +2095,7 @@ pub fn __action10<
     'input,
 >(
     input: &'input str,
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
 ) -> Expr
 {
     Expr::Var(id)
@@ -2118,12 +2120,12 @@ pub fn __action12<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, id, _): (usize, Rc<String>, usize),
+    (_, id, _): (usize, String, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, t, _): (usize, Rc<Type>, usize),
-) -> Rc<Type>
+    (_, t, _): (usize, Box<Type>, usize),
+) -> Box<Type>
 {
-    Rc::new(Type::Forall(id, t))
+    Box::new(Type::Forall(id, t))
 }
 
 #[allow(unused_variables)]
@@ -2131,8 +2133,8 @@ pub fn __action13<
     'input,
 >(
     input: &'input str,
-    (_, __0, _): (usize, Rc<Type>, usize),
-) -> Rc<Type>
+    (_, __0, _): (usize, Box<Type>, usize),
+) -> Box<Type>
 {
     (__0)
 }
@@ -2142,12 +2144,12 @@ pub fn __action14<
     'input,
 >(
     input: &'input str,
-    (_, t1, _): (usize, Rc<Type>, usize),
+    (_, t1, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
-    (_, t2, _): (usize, Rc<Type>, usize),
-) -> Rc<Type>
+    (_, t2, _): (usize, Box<Type>, usize),
+) -> Box<Type>
 {
-    Rc::new(Type::Fun(t1, t2))
+    Box::new(Type::Fun(t1, t2))
 }
 
 #[allow(unused_variables)]
@@ -2155,8 +2157,8 @@ pub fn __action15<
     'input,
 >(
     input: &'input str,
-    (_, __0, _): (usize, Rc<Type>, usize),
-) -> Rc<Type>
+    (_, __0, _): (usize, Box<Type>, usize),
+) -> Box<Type>
 {
     (__0)
 }
@@ -2166,10 +2168,10 @@ pub fn __action16<
     'input,
 >(
     input: &'input str,
-    (_, id, _): (usize, Rc<String>, usize),
-) -> Rc<Type>
+    (_, id, _): (usize, String, usize),
+) -> Box<Type>
 {
-    Rc::new(Type::Var(id))
+    Box::new(Type::Var(id))
 }
 
 #[allow(unused_variables)]
@@ -2178,9 +2180,9 @@ pub fn __action17<
 >(
     input: &'input str,
     (_, _, _): (usize, &'input str, usize),
-    (_, t, _): (usize, Rc<Type>, usize),
+    (_, t, _): (usize, Box<Type>, usize),
     (_, _, _): (usize, &'input str, usize),
-) -> Rc<Type>
+) -> Box<Type>
 {
     t
 }
@@ -2191,9 +2193,9 @@ pub fn __action18<
 >(
     input: &'input str,
     (_, __0, _): (usize, &'input str, usize),
-) -> Rc<String>
+) -> String
 {
-    Rc::new(String::from(__0))
+    String::from(__0)
 }
 
 pub trait __ToTriple<'input, > {

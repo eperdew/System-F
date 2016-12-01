@@ -1,15 +1,32 @@
-use std::rc::Rc;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::borrow::BorrowMut;
 use std::fmt;
 use std::fmt::Display;
+use std::cmp;
 
 type Id = String;
 
+/// Returns an `Id` with prefix `x` that is not in the set `vars`
+fn fresh_var_like(x: &Id, vars: HashSet<Id>) -> Id {
+    let mut suffix = 0;
+    let mut result = x.clone();
+    let len = result.len();
+    loop {
+        result.push_str(&suffix.to_string());
+
+        if !vars.contains(&result) {
+            return result;
+        }
+
+        suffix += 1;
+        result.truncate(len);
+    }
+}
+
 #[derive(Debug)]
 pub enum EvaluationError {
-    UnboundVariable(Rc<Id>),
+    UnboundVariable(String),
     IllformedExpression,
 }
 
@@ -23,12 +40,34 @@ impl fmt::Display for EvaluationError {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum Type {
-    Var(Rc<Id>),
-    Fun(Rc<Type>, Rc<Type>),
-    Forall(Rc<Id>, Rc<Type>),
+    Var(Id),
+    Fun(Box<Type>, Box<Type>),
+    Forall(Id, Box<Type>),
 }
+
+impl PartialEq for Type {
+    /// Equality is defined as alpha-equivalence of types
+    fn eq(&self, other: &Type) -> bool {
+        use self::Type::*;
+
+        match (self,other) {
+            (&Var(ref x),&Var(ref y)) => {
+                *x == *y
+            },
+            (&Fun(ref t1, ref t2),&Fun(ref t3, ref t4)) => {
+                *t1 == *t3 && *t2 == *t4 
+            },
+            (&Forall(ref A, ref t1),&Forall(ref B, ref t2)) => {
+                t1.subst(&Var(B.clone()), &A) == **t2
+            },
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Type { }
 
 impl Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -40,15 +79,126 @@ impl Display for Type {
     }
 }
 
+impl Type {
+    /// Returns the result of the capture avoiding substitution `self` {`t`/`X`}
+    fn subst(&self, t: &Type, X: &str) -> Type {
+        match *self {
+            Type::Var(ref Y) => {
+                if X == *Y {
+                    t.clone()
+                }
+                else {
+                    self.clone()
+                }
+            },
+            Type::Fun(ref t1, ref t2) => {
+                Type::Fun(Box::new(t1.subst(t,X)), Box::new(t2.subst(t,X)))
+            },
+            Type::Forall(ref Y, ref tau) => {
+                if X == *Y {
+                    self.clone()
+                }
+                else {
+                    let mut fvs = t.free_vars();
+                    if fvs.contains(Y) {
+                        let mut vars = self.vars();
+                        vars.extend(fvs.drain());
+                        vars.insert(String::from(X));
+                        let fresh_id = fresh_var_like(Y, vars);
+                        let renamed = self.rename(Y, &fresh_id);
+                        renamed.subst(t, X)
+                    }
+                    else {
+                        Type::Forall(Y.clone(), Box::new(tau.subst(t,X)))
+                    }
+                }
+            },
+        }
+    }
+
+    /// Returns an identical type with `var` renamed into `into` 
+    fn rename(&self, var: &str, into: &str) -> Type {
+        match *self {
+            Type::Var(ref X) => {
+                if *X == var {
+                    Type::Var(String::from(into))
+                }
+                else {
+                    self.clone()
+                }
+            },
+            Type::Fun(ref t1, ref t2) => {
+                Type::Fun(Box::new(t1.rename(var, into)),
+                        Box::new(t2.rename(var,into)))
+            },
+            Type::Forall(ref X, ref tau) => {
+                let binder = {
+                    if *X == var {
+                        String::from(into)       
+                    }
+                    else {
+                        X.clone()
+                    }
+                };
+                Type::Forall(binder, Box::new(tau.rename(var, into)))
+            },
+        }
+    }
+
+    /// Returns a set the free variables contained in `self`
+    fn free_vars(&self) -> HashSet<Id> {
+        match *self {
+            Type::Var(ref X) => {
+                let mut fvs = HashSet::new();
+                fvs.insert(X.clone());
+                fvs
+            },
+            Type::Fun(ref t1, ref t2) => {
+                let mut fvs = t1.free_vars();
+                let mut t2_fvs = t2.free_vars();
+                fvs.extend(t2_fvs.drain());
+                fvs
+            }
+            Type::Forall(ref X, ref t) => {
+                let mut fvs = t.free_vars();
+                fvs.remove(X);
+                fvs
+            }
+        }
+    }
+
+    /// Returns a set containing all of the variables contained in `self`
+    fn vars(&self) -> HashSet<Id> {
+        match *self {
+            Type::Var(ref X) => {
+                let mut vars = HashSet::new();
+                vars.insert(X.clone());
+                vars
+            },
+            Type::Fun(ref t1, ref t2) => {
+                let mut vars = t1.vars();
+                let mut t2_vars = t2.vars();
+                vars.extend(t2_vars.drain());
+                vars
+            }
+            Type::Forall(ref X, ref t) => {
+                let mut vars = t.vars();
+                vars.insert(X.clone());
+                vars
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
-    Var(Rc<Id>),
-    Lam(Rc<Id>, Rc<Type>, Rc<Expr>),
-    App(Rc<Expr>, Rc<Expr>),
-    TLam(Rc<Id>, Rc<Expr>),
-    TApp(Rc<Expr>, Rc<Type>),
-    Let(Rc<Id>, Rc<Type>, Rc<Expr>, Rc<Expr>),
-    TLet(Rc<Id>, Rc<Type>, Rc<Expr>),
+    Var(Id),
+    Lam(Id, Box<Type>, Box<Expr>),
+    App(Box<Expr>, Box<Expr>),
+    TLam(Id, Box<Expr>),
+    TApp(Box<Expr>, Box<Type>),
+    Let(Id, Box<Type>, Box<Expr>, Box<Expr>),
+    TLet(Id, Box<Type>, Box<Expr>),
 }
 
 impl Display for Expr {
@@ -66,220 +216,32 @@ impl Display for Expr {
 }
 
 impl Expr {
-    /// Evaluates an expression and returns either the normal form or an error
-    /// if it is illformed
-    pub fn eval(self) -> Result<Rc<Expr>, EvaluationError> {
-        Expr::eval_expr(Rc::new(self))
+    fn eval(&self) -> Expr {
+        unimplemented!()
     }
 
-    /// Evaluates an expression and returns either the normal form or an error 
-    /// if it is illformed
-    pub fn eval_expr(e: Rc<Expr>) -> Result<Rc<Expr>, EvaluationError> {
-        Expr::eval_helper(e, &mut HashMap::new(), &mut HashMap::new())
-    }
-
-    /// Workhorse for `eval` and `eval_expr` 
-    fn eval_helper(e: Rc<Expr>,
-            emap: &mut HashMap<&str, Rc<Expr>>,
-            tmap: &mut HashMap<&str, Rc<Type>>)
-            -> Result<Rc<Expr>, EvaluationError> {
-        use self::EvaluationError::*;
-
-        let result = match *e {
-            Expr::Var(ref id) => {
-                match emap.get::<str>(id) {
-                    Some(ref e) => Ok((*e).clone()),
-                    None => Err(UnboundVariable(id.clone())), 
-                }
-            }
-            Expr::Lam(_, _, _) |
-            Expr::TLam(_, _) => Ok(e.clone()),
-            Expr::App(ref e1, ref e2) => {
-                let v1 = Expr::eval_helper(e1.clone(), emap, tmap)?;
-                let v2 = Expr::eval_helper(e2.clone(), emap, tmap)?;
-                match *v1 {
-                    Expr::Lam(ref x, _, ref e3) => {
-                        let mut new_map = emap.clone();
-                        new_map.insert(x, e3.clone());
-                        Expr::eval_helper(e2.clone(), &mut new_map, tmap)
-                    },
-                    _ => Err(IllformedExpression),
-                }
-            }
-            Expr::TApp(ref e, ref t) => {
-                let v = Expr::eval_helper(e.clone(), emap, tmap)?;
-                match *v {
-                    Expr::TLam(ref x, ref e) => {
-                        let mut new_map = tmap.clone();
-                        new_map.insert(x, t.clone());
-                        Expr::eval_helper(e.clone(), emap, &mut new_map)
-                    },
-                    _ => Err(IllformedExpression),
-                } 
-            },
-            Expr::Let(ref x, ref t, ref e1, ref e2) => {
-                let desugared = Expr::App(Rc::new(Expr::Lam(x.clone(), t.clone(), e2.clone())),
-                                          e1.clone());
-                Expr::eval_helper(Rc::new(desugared), emap, tmap)
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                let desugared = Expr::TApp(Rc::new(Expr::TLam(X.clone(), e.clone())), t.clone());
-                Expr::eval_helper(Rc::new(desugared), emap, tmap)
-            }
-        }?;
-
-        Expr::expand_types(result, tmap, &mut HashSet::new())
-    }
-
-    /// Recursively expand the free variables of the types of the expression 
-    fn expand_types(e: Rc<Expr>, map: &HashMap<&str,Rc<Type>>, bvs: &mut HashSet<&str>) 
-    -> Result<Rc<Expr>,EvaluationError> {
-        match *e {
-            Expr::Var(_) => {
-                Ok(e.clone())
-            },
-            Expr::App(ref e1, ref e2) => {
-                let r1 = Expr::expand_types(e1.clone(), map, bvs)?;
-                let r2 = Expr::expand_types(e2.clone(), map, bvs)?;
-                Ok(Rc::new(Expr::App(r1,r2)))
-            },
-            Expr::TApp(ref e, ref t) => {
-                let re = Expr::expand_types(e.clone(), map, bvs)?;
-                let te = Type::eval(t.clone(), map, bvs)?;
-                Ok(Rc::new(Expr::TApp(re, te)))
-            },
-            Expr::Let(ref x, ref t, ref e1, ref e2) => {
-                let r1 = Expr::expand_types(e1.clone(), map, bvs)?;
-                let r2 = Expr::expand_types(e2.clone(), map, bvs)?;
-                let te = Type::eval(t.clone(), map, bvs)?;
-                Ok(Rc::new(Expr::Let(x.clone(), te, r1, r2)))
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                let te = Type::eval(t.clone(), map, bvs)?;
-                let mut new_bvs = bvs.clone();
-                new_bvs.insert(X);
-                let re = Expr::expand_types(e.clone(), map, &mut new_bvs)?;
-                Ok(Rc::new(Expr::TLet(X.clone(), te, re)))
-            },  
-            Expr::Lam(ref x, ref t, ref e) => {
-                let te = Type::eval(t.clone(), map, bvs)?;
-                let re = Expr::expand_types(e.clone(), map, bvs)?;
-                Ok(Rc::new(Expr::Lam(x.clone(), te, re)))
-            },
-            Expr::TLam(ref X, ref e) => {
-                let mut new_bvs = bvs.clone();
-                new_bvs.insert(X);
-                let re = Expr::expand_types(e.clone(), map, &mut new_bvs)?;
-                Ok(Rc::new(Expr::TLam(X.clone(), re)))
-            },
-        }
-    }
-
-    pub fn type_check(&self) -> Option<Type> {
-        self.type_check_helper(&HashMap::new(), &HashMap::new(), &HashSet::new())
-    }
-
-    fn type_check_helper(&self, 
-        emap: &HashMap<&str,&Type>, 
-        tmap: &HashMap<&str,&Type>,
-        bvs: &HashSet<&str>) -> Option<Type> {
+    fn subst(&self, e: &Expr, x: &str) -> Expr {
         match *self {
-            Expr::Var(ref x) => {
-                // x : t |- x : t
-                emap.get::<str>(&**x).map(|t| { (*t).clone() } )
-            },
-            Expr::Lam(ref x, ref t, ref e) => {
-                // x : t |- e : t' => |- \x.e : t -> t'
-                let mut new_emap = emap.clone();
-                new_emap.insert(x, t);
-                let tbod = e.type_check_helper(&new_emap, tmap, bvs);
-                tbod.map(|tb| { Type::Fun((*t).clone(), Rc::new(tb)) })
-            },
-            Expr::App(ref e1, ref e2) => {
-                // e1 : t -> t', e2 : t |- e1 e2 : t'  
-                let t1 = e1.type_check_helper(emap, tmap, bvs);
-                let t2 = e2.type_check_helper(emap, tmap, bvs);
-                match t1 {
-                    Some(Type::Fun(ta,tb)) => match t2 {
-                        Some(tc) => {
-                            if Type::alpha_equiv(&ta,&tc) {
-                                Some((*tb).clone())
-                            }
-                            else {
-                                None
-                            }
-                        },
-                        _ => None,
-                    },
-                    _ => None,
-                }
-            },
-            Expr::TLam(ref X, ref e) => {
-                // X typ |- e : t => |- \/X.e : forall X, t
-                let mut new_bvs = bvs.clone();
-                new_bvs.insert(X);
-                e.type_check_helper(emap, tmap, &new_bvs)
-                    .map(|t| { Type::Forall((*X).clone(),Rc::new(t)) })
-            },
-            Expr::TApp(ref e, ref t) => {
-                // |- e : \/X.t => |- e [t'] : t[t'/X] 
-                let t1 = e.type_check_helper(emap, tmap, bvs);
-                match t1 {
-                    Some(Type::Forall(X,t2)) => {
-                        let mut new_tmap: HashMap<&str,Rc<Type>> = HashMap::new();
-                        new_tmap.insert(&*X, (*t).clone());
-                        Some((*Type::eval(t2, &new_tmap, bvs).unwrap()).clone())
-                    },
-                    _ => None,
-                }
-            },
-            Expr::Let(ref x, ref t, ref e1, ref e2) => {
-                // let x:t = e1 in e2 gets desugared to (\x:t.e2) e1
-                (Expr::App(
-                    Rc::new(Expr::Lam(x.clone(),t.clone(),e2.clone())),
-                    e1.clone())).type_check_helper(emap, tmap, bvs)
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                // let X = t in e gets desugared to (/\X.e) [t]
-                (Expr::TApp(
-                    Rc::new(Expr::TLam(X.clone(),e.clone())),
-                    t.clone())).type_check_helper(emap, tmap, bvs)
-            },
-        }
-    }
-}
-
-impl Type {
-    /// Recursively expand the free variables of a type using the given map
-    fn eval(t: Rc<Type>, map: &HashMap<&str,Rc<Type>>, bvs: &HashSet<&str>)
-    -> Result<Rc<Type>,EvaluationError> {
-        match *t {
-            Type::Var(ref id) => {
-                if bvs.contains::<str>(id) {
-                    Ok(t.clone())
+            Expr::Var(ref y) => {
+                if x == *y {
+                    e.clone()
                 } else {
-                    match map.get::<str>(id) {
-                        Some(ref t) => Type::eval((*t).clone(), map, bvs),
-                        None => Err(EvaluationError::UnboundVariable(id.clone())),
-                    }
+                    self.clone()
                 }
             },
-            Type::Fun(ref t1, ref t2) => {
-                let rt1 = Type::eval(t1.clone(), map, bvs)?;
-                let rt2 = Type::eval(t2.clone(), map, bvs)?;
-                Ok(Rc::new(Type::Fun(rt1, rt2)))
+            Expr::Lam(ref y,ref t,ref e) => {
+                if x == *y {
+                    unimplemented!()
+                }
+                else {
+                    unimplemented!()
+                }
             },
-            Type::Forall(ref id, ref t) => {
-                let mut new_bvs = bvs.clone();
-                new_bvs.insert(&**id);
-                let rt = Type::eval(t.clone(), map, &mut new_bvs)?;
-                Ok(Rc::new(Type::Forall(id.clone(), rt)))
-            },
+            Expr::App(ref e1,ref e2) => unimplemented!(),
+            Expr::TLam(ref X,ref e) => unimplemented!(),
+            Expr::TApp(ref e,ref t) => unimplemented!(),
+            Expr::Let(ref y,ref t,ref e1,ref e2) => unimplemented!(),
+            Expr::TLet(ref X,ref t,ref e) => unimplemented!(),
         }
-    }
-
-    fn alpha_equiv(t1: &Type, t2: &Type) -> bool {
-        //TODO
-        true
     }
 }

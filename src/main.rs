@@ -12,7 +12,7 @@ use tests::load_and_parse_expr;
 fn main() {
     let expr: Expr = load_and_parse_expr("tests/test4.f");
     
-    let result = expr.type_check();
+    // let result = expr.type_check();
 
-    println!("{:?}\nhas type:\n{:?}",expr, result);
+    // println!("{}\nhas type:\n{}",expr, result);
 }
