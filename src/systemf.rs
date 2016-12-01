@@ -259,7 +259,7 @@ impl Expr {
                 let t_e = e.type_check_helper(tmap)?;
                 match t_e {
                     Type::Forall(ref X, ref t1) => {
-                        Ok(t1.subst(&t_e, X))
+                        Ok(t1.subst(t, X))
                     },
                     _ => {
                         Err(TypeError::IllegalTypeApplication)

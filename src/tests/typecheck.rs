@@ -7,7 +7,17 @@ fn test1_typecheck() {
 
     let result = expr.type_check();
 
-    println!("\n{}\nhas type\n{:?}\n", expr, result);
+    let expected = Type::Forall(
+                        String::from("A"),
+                        Box::new(Type::Fun(
+                            Box::new(Type::Var(String::from("A"))),
+                            Box::new(Type::Var(String::from("A"))))));
+
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
 }
 
 #[test]
@@ -16,7 +26,21 @@ fn test2_typecheck() {
     
     let result = expr.type_check();
 
-    println!("\n{}\nhas type\n{}\n", expr, result.unwrap());
+    let expected = Type::Fun(
+        Box::new(Type::Forall(String::from("X"),
+            Box::new(Type::Forall(String::from("Y"),
+                Box::new(Type::Forall(String::from("Z"),
+                    Box::new(Type::Var(String::from("X"))))))))),
+        Box::new(Type::Forall(String::from("X"),
+            Box::new(Type::Forall(String::from("Y"),
+                Box::new(Type::Forall(String::from("Z"),
+                    Box::new(Type::Var(String::from("X"))))))))));
+                    
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
 }
 
 #[test]
@@ -25,7 +49,19 @@ fn test3_typecheck() {
     
     let result = expr.type_check();
 
-    println!("\n{}\nhas type\n{}\n", expr, result.unwrap());
+    let expected = Type::Fun(
+        Box::new(Type::Forall(String::from("Y"),
+            Box::new(Type::Forall(String::from("X"),
+                Box::new(Type::Var(String::from("X"))))))),
+        Box::new(Type::Forall(String::from("Y"),
+            Box::new(Type::Forall(String::from("X"),
+                Box::new(Type::Var(String::from("X"))))))));
+
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
 }
 
 #[test]
@@ -34,5 +70,14 @@ fn test4_typecheck() {
     
     let result = expr.type_check();
 
-    println!("\n{}\nhas type\n{}\n", expr, result.unwrap());
+    let expected = Type::Forall(String::from("X"),
+        Box::new(Type::Fun(
+            Box::new(Type::Var(String::from("X"))),
+            Box::new(Type::Var(String::from("X"))))));
+
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
 }
