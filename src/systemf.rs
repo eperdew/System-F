@@ -213,7 +213,8 @@ impl Expr {
         }
     }
 
-    /// 
+    /// Returns a `Type` if the given expression can be typed in System F with
+    /// a closed term
     pub fn type_check(&self) -> Result<Type,TypeError> {
         let mut fvs = self.free_type_vars();
         for var in fvs.drain() {
@@ -226,7 +227,7 @@ impl Expr {
         match *self {
             Expr::Var(ref x) => {
                 match tmap.get::<str>(x) {
-                    Some(t) => Ok((*t).clone()),
+                    Some(t) => { Ok((*t).clone()) },
                     None => Err(TypeError::UnboundVariable(x.clone())),
                 }
             },
@@ -239,9 +240,9 @@ impl Expr {
             Expr::App(ref e1,ref e2) => {
                 let t_e1 = e1.type_check_helper(tmap)?;
                 let t_e2 = e2.type_check_helper(tmap)?;
-                match (t_e1,t_e2) {
-                    (Type::Fun(ta,tb),t) => {
-                        if *ta == t {
+                match t_e1 {
+                    Type::Fun(ta,tb) => {
+                        if *ta == t_e2 {
                             Ok(*tb.clone())
                         } else {
                             Err(TypeError::IllegalApplication)
@@ -257,10 +258,12 @@ impl Expr {
             Expr::TApp(ref e,ref t) => {
                 let t_e = e.type_check_helper(tmap)?;
                 match t_e {
-                    Type::Forall(X,t1) => {
-                        Ok(t1.subst(&t,&X))
+                    Type::Forall(ref X, ref t1) => {
+                        Ok(t1.subst(&t_e, X))
                     },
-                    _ => Err(TypeError::IllegalTypeApplication),
+                    _ => {
+                        Err(TypeError::IllegalTypeApplication)
+                    },
                 }
             },
             Expr::Let(ref x,ref t,ref e1,ref e2) => {
@@ -269,9 +272,7 @@ impl Expr {
                     e1.clone()).type_check_helper(tmap)
             },
             Expr::TLet(ref X,ref t,ref e) => {
-                Expr::TApp(
-                    Box::new(Expr::TLam(X.clone(), e.clone())),
-                    t.clone()).type_check_helper(tmap)
+                e.subst_type(t, X).type_check_helper(tmap)
             },
         }
     }
