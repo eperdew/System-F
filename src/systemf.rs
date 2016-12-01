@@ -282,7 +282,16 @@ impl Expr {
                 if *X == from {
                     self.clone()
                 } else {
-                    unimplemented!()
+                    let mut fvs = to.free_vars();
+                    if fvs.contains(X) {
+                        fvs.insert(String::from(from));
+                        let fresh_id = fresh_var_like(X, fvs);
+                        let fresh_var = Type::Var(fresh_id.clone());
+                        let new_e1 = e1.subst_type(&fresh_var, X).subst_type(to, from);
+                        Expr::TLam(fresh_id, Box::new(new_e1))
+                    } else {
+                        Expr::TLam(X.clone(), Box::new(e1.subst_type(to, from)))
+                    }
                 }
             },
             Expr::TApp(ref e1,ref t) => {
@@ -302,7 +311,16 @@ impl Expr {
                     Expr::TLet(X.clone(), Box::new(new_t), e1.clone())
                 }
                 else {
-                    unimplemented!()
+                    let mut fvs = to.free_vars();
+                    if fvs.contains(X) {
+                        fvs.insert(String::from(from));
+                        let fresh_id = fresh_var_like(X, fvs);
+                        let fresh_var = Type::Var(fresh_id.clone());
+                        let new_e1 = e1.subst_type(&fresh_var, X).subst_type(to, from);
+                        Expr::TLet(fresh_id, Box::new(new_t), Box::new(new_e1))
+                    } else {
+                        Expr::TLet(X.clone(), Box::new(new_t), Box::new(e1.subst_type(to, from)))
+                    }
                 }
             },
         }
