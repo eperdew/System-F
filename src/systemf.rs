@@ -115,6 +115,12 @@ impl Type {
 
     /// Returns an identical type with `var` renamed into `into` 
     fn rename(&self, var: &str, into: &str) -> Type {
+        // FIXME: This doesn't work if I rename a variable that is shadowed
+        //
+        // E.g., renaming X into Y for forall X, forall X, X should yield forall Y, forall X, X
+        //
+        // Idea: after the first substitution, do a substitution instead.
+        // Alternatively, replace rename with a call to `subst` at the call site. 
         match *self {
             Type::Var(ref X) => {
                 if *X == var {
@@ -337,12 +343,65 @@ impl Expr {
 
     /// Returns an identical expression with expression variable `var` renamed into `into` 
     fn rename(&self, var: &str, into: &str) -> Expr {
-        unimplemented!()
+        match *self {
+            Expr::Var(ref x) => {
+                if *x == var {
+                    Expr::Var(String::from(into))
+                } else {
+                    self.clone()
+                }
+            },
+            Expr::Lam(ref x, ref t, ref e) => {
+                unimplemented!()
+            },
+            Expr::App(ref e1, ref e2) => {
+                let new_e1 = e1.rename(var, into);
+                let new_e2 = e2.rename(var, into);
+                Expr::App(Box::new(new_e1), Box::new(new_e2))
+            },
+            Expr::TLam(ref X, ref e) => {
+                let new_e = e.rename(var, into);
+                Expr::TLam(X.clone, Box::new(new_e))
+            },
+            Expr::TApp(ref e, ref t) => {
+                let new_e = e.rename(var, into);
+                Expr::TApp(Box::new(new_e), t.clone())
+            },
+            Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                unimplemented!()
+            },
+            Expr::TLet(ref X, ref t, ref e) => {
+                let new_e = e.rename(var, into);
+                Expr::TLet(X.clone, t.clone(), Box::new(new_e))
+            },
+        }
     }
 
     /// Returns an identical expression with type variable `var` renamed into `into` 
     fn rename_type(&self, var: &str, into: &str) -> Expr {
-        unimplemented!()
+        match *self {
+            Expr::Var(ref x) => {
+                unimplemented!()
+            },
+            Expr::Lam(ref x, ref t, ref e) => {
+                unimplemented!()
+            },
+            Expr::App(ref e1, ref e2) => {
+                unimplemented!()
+            },
+            Expr::TLam(ref X, ref e) => {
+                unimplemented!()
+            },
+            Expr::TApp(ref e, ref t) => {
+                unimplemented!()
+            },
+            Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                unimplemented!()
+            },
+            Expr::TLet(ref X, ref t, ref e) => {
+                unimplemented!()
+            },
+        }
     }
 
     /// Returns a set the free variables contained in `self`
