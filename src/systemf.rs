@@ -355,7 +355,7 @@ impl Expr {
             },
             Expr::Lam(ref x, _, ref e) => {
                 let mut vars = e.free_vars();
-                vars.remove(x.clone());
+                vars.remove(x);
                 vars
             },
             Expr::App(ref e1, ref e2) => {
@@ -373,7 +373,7 @@ impl Expr {
             Expr::Let(ref x, _, ref e1, ref e2) => {
                 let mut vars = e1.free_vars();
                 let mut e2_vars = e2.free_vars();
-                e2_vars.remove(x.clone());
+                e2_vars.remove(x);
                 vars.extend(e2_vars.drain());
                 vars
             },
@@ -441,7 +441,7 @@ impl Expr {
             },
             Expr::TLam(ref X, ref e) => {
                 let mut vars = e.free_type_vars();
-                vars.remove(X.clone());
+                vars.remove(X);
                 vars
             },
             Expr::TApp(ref e, ref t) => {
@@ -461,7 +461,7 @@ impl Expr {
             Expr::TLet(ref X, ref t, ref e) => {
                 let mut vars = t.vars();
                 let mut e_vars = e.free_type_vars();
-                e_vars.remove(X.clone());
+                e_vars.remove(X);
                 vars.extend(e_vars.drain());
                 vars
             }
