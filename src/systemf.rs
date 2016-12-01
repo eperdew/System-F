@@ -205,6 +205,10 @@ impl Expr {
         }
     }
 
+    pub fn type_check(&self) -> Option<Type> {
+        unimplemented!()
+    }
+
     /// Returns the result of the capture avoiding substitution `self` {`e`/`x`}
     fn subst(&self, e: &Expr, x: &str) -> Expr {
         match *self {
