@@ -30,6 +30,14 @@ pub enum EvaluationError {
     IllformedExpression,
 }
 
+#[derive(Debug)]
+pub enum TypeError {
+    UnboundVariable(String),
+    UnboundTypeVariable(String),
+    IllegalApplication,
+    IllegalTypeApplication,
+}
+
 impl fmt::Display for EvaluationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::EvaluationError::*;
@@ -205,8 +213,67 @@ impl Expr {
         }
     }
 
-    pub fn type_check(&self) -> Option<Type> {
-        unimplemented!()
+    /// 
+    pub fn type_check(&self) -> Result<Type,TypeError> {
+        let mut fvs = self.free_type_vars();
+        for var in fvs.drain() {
+            return Err(TypeError::UnboundTypeVariable(var));
+        }
+        self.type_check_helper(&HashMap::new())
+    }
+
+    fn type_check_helper(&self, tmap: &HashMap<&str,&Type>) -> Result<Type,TypeError> {
+        match *self {
+            Expr::Var(ref x) => {
+                match tmap.get::<str>(x) {
+                    Some(t) => Ok((*t).clone()),
+                    None => Err(TypeError::UnboundVariable(x.clone())),
+                }
+            },
+            Expr::Lam(ref x,ref t,ref e) => {
+                let mut new_tmap = tmap.clone();
+                new_tmap.insert(x,t);
+                let t_e = e.type_check_helper(&new_tmap)?;
+                Ok(Type::Fun(t.clone(),Box::new(t_e)))
+            },
+            Expr::App(ref e1,ref e2) => {
+                let t_e1 = e1.type_check_helper(tmap)?;
+                let t_e2 = e2.type_check_helper(tmap)?;
+                match (t_e1,t_e2) {
+                    (Type::Fun(ta,tb),t) => {
+                        if *ta == t {
+                            Ok(*tb.clone())
+                        } else {
+                            Err(TypeError::IllegalApplication)
+                        }
+                    },
+                    _ => Err(TypeError::IllegalApplication),
+                }
+            },
+            Expr::TLam(ref X,ref e) => {
+                let t_e = e.type_check_helper(tmap)?;
+                Ok(Type::Forall(X.clone(), Box::new(t_e)))
+            },
+            Expr::TApp(ref e,ref t) => {
+                let t_e = e.type_check_helper(tmap)?;
+                match t_e {
+                    Type::Forall(X,t1) => {
+                        Ok(t1.subst(&t,&X))
+                    },
+                    _ => Err(TypeError::IllegalTypeApplication),
+                }
+            },
+            Expr::Let(ref x,ref t,ref e1,ref e2) => {
+                Expr::App(
+                    Box::new(Expr::Lam(x.clone(), t.clone(), e2.clone())),
+                    e1.clone()).type_check_helper(tmap)
+            },
+            Expr::TLet(ref X,ref t,ref e) => {
+                Expr::TApp(
+                    Box::new(Expr::TLam(X.clone(), e.clone())),
+                    t.clone()).type_check_helper(tmap)
+            },
+        }
     }
 
     /// Returns the result of the capture avoiding substitution `self` {`e`/`x`}
@@ -393,7 +460,7 @@ impl Expr {
             },
             Expr::TApp(ref e, ref t) => {
                 let mut vars = e.free_type_vars();
-                let mut t_vars = e.free_vars();
+                let mut t_vars = t.free_vars();
                 vars.extend(t_vars.drain());
                 vars
             },

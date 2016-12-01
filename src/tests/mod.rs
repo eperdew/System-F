@@ -1,5 +1,5 @@
 pub mod eval;
-// pub mod typecheck;
+pub mod typecheck;
 pub mod types;
 
 use ::parser;

@@ -10,9 +10,9 @@ use systemf::Expr;
 use tests::load_and_parse_expr;
 
 fn main() {
-    let expr: Expr = load_and_parse_expr("tests/test4.f");
-    
-    // let result = expr.type_check();
+    let expr: Expr = load_and_parse_expr("tests/test1.f");
 
-    // println!("{}\nhas type:\n{}",expr, result);
+    let result = expr.type_check();
+
+    println!("\n{}\nhas type\n{:?}\n", expr, result);
 }
