@@ -86,8 +86,7 @@ impl Type {
             Type::Var(ref Y) => {
                 if X == *Y {
                     t.clone()
-                }
-                else {
+                } else {
                     self.clone()
                 }
             },
@@ -97,8 +96,7 @@ impl Type {
             Type::Forall(ref Y, ref tau) => {
                 if X == *Y {
                     self.clone()
-                }
-                else {
+                } else {
                     let mut fvs = t.free_vars();
                     if fvs.contains(Y) {
                         let mut vars = self.vars();
@@ -107,8 +105,7 @@ impl Type {
                         let fresh_id = fresh_var_like(Y, vars);
                         let renamed = self.rename(Y, &fresh_id);
                         renamed.subst(t, X)
-                    }
-                    else {
+                    } else {
                         Type::Forall(Y.clone(), Box::new(tau.subst(t,X)))
                     }
                 }
@@ -122,8 +119,7 @@ impl Type {
             Type::Var(ref X) => {
                 if *X == var {
                     Type::Var(String::from(into))
-                }
-                else {
+                } else {
                     self.clone()
                 }
             },
@@ -135,8 +131,7 @@ impl Type {
                 let binder = {
                     if *X == var {
                         String::from(into)       
-                    }
-                    else {
+                    } else {
                         X.clone()
                     }
                 };
@@ -216,10 +211,51 @@ impl Display for Expr {
 }
 
 impl Expr {
-    fn eval(&self) -> Expr {
-        unimplemented!()
+    /// Returns the normal form of `self` under call-by-value semantics
+    pub fn eval(&self) -> Result<Expr,EvaluationError> {
+        match *self {
+            Expr::Var(ref x) => {
+                Err(EvaluationError::UnboundVariable(x.clone()))
+            },
+            Expr::Lam(_,_,_) | Expr::TLam(_,_) => Ok(self.clone()),
+            Expr::App(ref e1, ref e2) => {
+                let v1 = e1.eval()?;
+                let v2 = e2.eval()?;
+                if let Expr::Lam(x,t,e3) = v1 {
+                    let new_expr = e3.subst(&v2, &x);
+                    new_expr.eval()
+                } else {
+                    Err(EvaluationError::IllformedExpression)
+                }
+            },
+            Expr::TApp(ref e, ref t) => {
+                let v = e.eval()?;
+                if let Expr::TLam(X,e) = v {
+                    let new_expr = e.subst_type(t, &X);
+                    new_expr.eval()
+                } else {
+                    Err(EvaluationError::IllformedExpression)
+                }
+            },
+            Expr::Let(ref x, ref t, ref e1, ref e2) => {
+                Expr::App(
+                    Box::new(Expr::Lam(
+                        x.clone(),
+                        t.clone(),
+                        e2.clone())),
+                    e1.clone()).eval()
+            },
+            Expr::TLet(ref X, ref t, ref e) => {
+                Expr::TApp(
+                    Box::new(Expr::TLam(
+                        X.clone(),
+                        e.clone())),
+                    t.clone()).eval()
+            },
+        }
     }
 
+    /// Returns the result of the capture avoiding substitution `self` {`e`/`x`}
     fn subst(&self, e: &Expr, x: &str) -> Expr {
         match *self {
             Expr::Var(ref y) => {
@@ -229,19 +265,64 @@ impl Expr {
                     self.clone()
                 }
             },
-            Expr::Lam(ref y,ref t,ref e) => {
+            Expr::Lam(ref y,ref t,ref e1) => {
                 if x == *y {
-                    unimplemented!()
-                }
-                else {
+                    self.clone()
+                } else {
+                    // TODO: check freshness
                     unimplemented!()
                 }
             },
-            Expr::App(ref e1,ref e2) => unimplemented!(),
-            Expr::TLam(ref X,ref e) => unimplemented!(),
-            Expr::TApp(ref e,ref t) => unimplemented!(),
-            Expr::Let(ref y,ref t,ref e1,ref e2) => unimplemented!(),
-            Expr::TLet(ref X,ref t,ref e) => unimplemented!(),
+            Expr::App(ref e1,ref e2) => {
+                Expr::App(Box::new(e1.subst(e,x)), Box::new(e2.subst(e,x)))   
+            },
+            Expr::TLam(ref X,ref e1) => {
+                Expr::TLam(X.clone(), Box::new(e1.subst(e,x)))
+            },
+            Expr::TApp(ref e1,ref t) => {
+                Expr::TApp(Box::new(e1.subst(e,x)), t.clone())
+            },
+            Expr::Let(ref y,ref t,ref e1,ref e2) => {
+                // Unclear
+                unimplemented!()
+            },
+            Expr::TLet(ref X,ref t,ref e1) => {
+                Expr::TLet(X.clone(), t.clone(), Box::new(e1.subst(e,x)))
+            },
+        }
+    }
+
+    fn subst_type(&self, to: &Type, from: &str) -> Expr {
+        match *self {
+            Expr::Var(ref y) => {
+                self.clone()
+            },
+            Expr::Lam(ref y,ref t,ref e1) => {
+                let new_t = t.subst(to, from);
+                Expr::Lam(y.clone(), Box::new(new_t), Box::new(e1.subst_type(to,from)))
+            },
+            Expr::App(ref e1,ref e2) => {
+                Expr::App(Box::new(e1.subst_type(to,from)), Box::new(e2.subst_type(to,from)))   
+            },
+            Expr::TLam(ref X,ref e1) => {
+                if *X == from {
+                    self.clone()
+                } else {
+                    // FIXME: Do I need to worry about the fvs of `to` here?
+                    Expr::TLam(X.clone(), Box::new(e1.subst_type(to,from)))
+                }
+            },
+            Expr::TApp(ref e1,ref t) => {
+                let new_t = t.subst(to, from);
+                let new_e1 = e1.subst_type(to, from);
+                Expr::TApp(Box::new(new_e1), Box::new(new_t))
+            },
+            Expr::Let(ref y,ref t,ref e1,ref e2) => {
+                unimplemented!()
+            },
+            Expr::TLet(ref X,ref t,ref e1) => {
+                unimplemented!()
+            },
         }
     }
 }
