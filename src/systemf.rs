@@ -347,7 +347,40 @@ impl Expr {
 
     /// Returns a set the free variables contained in `self`
     fn free_vars(&self) -> HashSet<Id> {
-        unimplemented!()
+        match *self {
+            Expr::Var(ref x) => {
+                let mut vars = HashSet::new();
+                vars.insert(x.clone());
+                vars
+            },
+            Expr::Lam(ref x, _, ref e) => {
+                let mut vars = e.free_vars();
+                vars.remove(x.clone());
+                vars
+            },
+            Expr::App(ref e1, ref e2) => {
+                let mut vars = e1.free_vars();
+                let mut e2_vars = e2.free_vars();
+                vars.extend(e2_vars.drain());
+                vars
+            },
+            Expr::TLam(_, ref e) => {
+                e.free_vars()
+            },
+            Expr::TApp(ref e, _) => {
+                e.free_vars()
+            },
+            Expr::Let(ref x, _, ref e1, ref e2) => {
+                let mut vars = e1.free_vars();
+                let mut e2_vars = e2.free_vars();
+                e2_vars.remove(x.clone());
+                vars.extend(e2_vars.drain());
+                vars
+            },
+            Expr::TLet(_, _, ref e) => {
+                e.free_vars()
+            }
+        }
     }
 
     /// Returns a set containing all of the variables contained in `self`
@@ -396,38 +429,38 @@ impl Expr {
             },
             Expr::Lam(_, ref t, ref e) => {
                 let mut vars = t.vars();
-                let mut e_vars = e.type_vars();
+                let mut e_vars = e.free_type_vars();
                 vars.extend(e_vars.drain());
                 vars
             },
             Expr::App(ref e1, ref e2) => {
-                let mut vars = e1.type_vars();
-                let mut e2_vars = e2.type_vars();
+                let mut vars = e1.free_type_vars();
+                let mut e2_vars = e2.free_type_vars();
                 vars.extend(e2_vars.drain());
                 vars
             },
             Expr::TLam(ref X, ref e) => {
-                let mut vars = e.type_vars();
+                let mut vars = e.free_type_vars();
                 vars.remove(X.clone());
                 vars
             },
             Expr::TApp(ref e, ref t) => {
-                let mut vars = e.type_vars();
+                let mut vars = e.free_type_vars();
                 let mut t_vars = e.vars();
                 vars.extend(t_vars.drain());
                 vars
             },
             Expr::Let(_, ref t, ref e1, ref e2) => {
                 let mut vars = t.vars();
-                let mut e1_vars = e1.type_vars();
-                let mut e2_vars = e2.type_vars();
+                let mut e1_vars = e1.free_type_vars();
+                let mut e2_vars = e2.free_type_vars();
                 vars.extend(e1_vars.drain());
                 vars.extend(e2_vars.drain());
                 vars
             },
             Expr::TLet(ref X, ref t, ref e) => {
                 let mut vars = t.vars();
-                let mut e_vars = e.type_vars();
+                let mut e_vars = e.free_type_vars();
                 e_vars.remove(X.clone());
                 vars.extend(e_vars.drain());
                 vars
