@@ -99,49 +99,15 @@ impl Type {
                 } else {
                     let mut fvs = t.free_vars();
                     if fvs.contains(Y) {
-                        let mut vars = self.vars();
-                        vars.extend(fvs.drain());
-                        vars.insert(String::from(X));
-                        let fresh_id = fresh_var_like(Y, vars);
-                        let renamed = self.rename(Y, &fresh_id);
-                        renamed.subst(t, X)
+                        fvs.insert(String::from(X));
+                        let fresh_id = fresh_var_like(Y, fvs);
+                        let fresh_var = Type::Var(fresh_id.clone());
+                        let res = tau.subst(&fresh_var, Y).subst(t, X);
+                        Type::Forall(fresh_id, Box::new(res))
                     } else {
                         Type::Forall(Y.clone(), Box::new(tau.subst(t,X)))
                     }
                 }
-            },
-        }
-    }
-
-    /// Returns an identical type with `var` renamed into `into` 
-    fn rename(&self, var: &str, into: &str) -> Type {
-        // FIXME: This doesn't work if I rename a variable that is shadowed
-        //
-        // E.g., renaming X into Y for forall X, forall X, X should yield forall Y, forall X, X
-        //
-        // Idea: after the first substitution, do a substitution instead.
-        // Alternatively, replace rename with a call to `subst` at the call site. 
-        match *self {
-            Type::Var(ref X) => {
-                if *X == var {
-                    Type::Var(String::from(into))
-                } else {
-                    self.clone()
-                }
-            },
-            Type::Fun(ref t1, ref t2) => {
-                Type::Fun(Box::new(t1.rename(var, into)),
-                        Box::new(t2.rename(var,into)))
-            },
-            Type::Forall(ref X, ref tau) => {
-                let binder = {
-                    if *X == var {
-                        String::from(into)       
-                    } else {
-                        X.clone()
-                    }
-                };
-                Type::Forall(binder, Box::new(tau.rename(var, into)))
             },
         }
     }
@@ -164,28 +130,6 @@ impl Type {
                 let mut fvs = t.free_vars();
                 fvs.remove(X);
                 fvs
-            }
-        }
-    }
-
-    /// Returns a set containing all of the variables contained in `self`
-    fn vars(&self) -> HashSet<Id> {
-        match *self {
-            Type::Var(ref X) => {
-                let mut vars = HashSet::new();
-                vars.insert(X.clone());
-                vars
-            },
-            Type::Fun(ref t1, ref t2) => {
-                let mut vars = t1.vars();
-                let mut t2_vars = t2.vars();
-                vars.extend(t2_vars.drain());
-                vars
-            }
-            Type::Forall(ref X, ref t) => {
-                let mut vars = t.vars();
-                vars.insert(X.clone());
-                vars
             }
         }
     }
@@ -275,8 +219,16 @@ impl Expr {
                 if x == *y {
                     self.clone()
                 } else {
-                    // TODO: check freshness
-                    unimplemented!()
+                    let mut fvs = e.free_vars();
+                    if fvs.contains(y) {
+                        fvs.insert(String::from(x));
+                        let fresh_id = fresh_var_like(y, fvs);
+                        let fresh_var = Expr::Var(fresh_id.clone());
+                        let res = e1.subst(&fresh_var, y).subst(e, x);
+                        Expr::Lam(fresh_id, t.clone(), Box::new(res))
+                    } else {
+                        Expr::Lam(y.clone(), t.clone(), Box::new(e1.subst(e, x)))
+                    }
                 }
             },
             Expr::App(ref e1,ref e2) => {
@@ -290,8 +242,23 @@ impl Expr {
             },
             Expr::Let(ref y,ref t,ref e1,ref e2) => {
                 let new_e1 = e1.subst(e, x);
-                // Unclear
-                unimplemented!()
+
+                if x == *y {
+                    Expr::Let(y.clone(), t.clone(), Box::new(new_e1), e2.clone())
+                }
+                else {
+                    let mut fvs = e.free_vars();
+                    if fvs.contains(y) {
+                        fvs.insert(String::from(x));
+                        let fresh_id = fresh_var_like(y, fvs);
+                        let fresh_var = Expr::Var(fresh_id.clone());
+                        let new_e2 = e2.subst(&fresh_var, y).subst(e, x);
+                        Expr::Let(fresh_id, t.clone(), Box::new(new_e1), Box::new(new_e2))
+                    }
+                    else {
+                        Expr::Let(y.clone(), t.clone(), Box::new(new_e1), Box::new(e2.subst(e, x)))
+                    }
+                }
             },
             Expr::TLet(ref X,ref t,ref e1) => {
                 Expr::TLet(X.clone(), t.clone(), Box::new(e1.subst(e,x)))
@@ -341,69 +308,6 @@ impl Expr {
         }
     }
 
-    /// Returns an identical expression with expression variable `var` renamed into `into` 
-    fn rename(&self, var: &str, into: &str) -> Expr {
-        match *self {
-            Expr::Var(ref x) => {
-                if *x == var {
-                    Expr::Var(String::from(into))
-                } else {
-                    self.clone()
-                }
-            },
-            Expr::Lam(ref x, ref t, ref e) => {
-                unimplemented!()
-            },
-            Expr::App(ref e1, ref e2) => {
-                let new_e1 = e1.rename(var, into);
-                let new_e2 = e2.rename(var, into);
-                Expr::App(Box::new(new_e1), Box::new(new_e2))
-            },
-            Expr::TLam(ref X, ref e) => {
-                let new_e = e.rename(var, into);
-                Expr::TLam(X.clone, Box::new(new_e))
-            },
-            Expr::TApp(ref e, ref t) => {
-                let new_e = e.rename(var, into);
-                Expr::TApp(Box::new(new_e), t.clone())
-            },
-            Expr::Let(ref x, ref t, ref e1, ref e2) => {
-                unimplemented!()
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                let new_e = e.rename(var, into);
-                Expr::TLet(X.clone, t.clone(), Box::new(new_e))
-            },
-        }
-    }
-
-    /// Returns an identical expression with type variable `var` renamed into `into` 
-    fn rename_type(&self, var: &str, into: &str) -> Expr {
-        match *self {
-            Expr::Var(ref x) => {
-                unimplemented!()
-            },
-            Expr::Lam(ref x, ref t, ref e) => {
-                unimplemented!()
-            },
-            Expr::App(ref e1, ref e2) => {
-                unimplemented!()
-            },
-            Expr::TLam(ref X, ref e) => {
-                unimplemented!()
-            },
-            Expr::TApp(ref e, ref t) => {
-                unimplemented!()
-            },
-            Expr::Let(ref x, ref t, ref e1, ref e2) => {
-                unimplemented!()
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                unimplemented!()
-            },
-        }
-    }
-
     /// Returns a set the free variables contained in `self`
     fn free_vars(&self) -> HashSet<Id> {
         match *self {
@@ -442,44 +346,6 @@ impl Expr {
         }
     }
 
-    /// Returns a set containing all of the variables contained in `self`
-    fn vars(&self) -> HashSet<Id> {
-        match *self {
-            Expr::Var(ref x) => {
-                let mut vars = HashSet::new();
-                vars.insert(x.clone());
-                vars
-            },
-            Expr::Lam(ref x, _, ref e) => {
-                let mut vars = e.vars();
-                vars.insert(x.clone());
-                vars
-            },
-            Expr::App(ref e1, ref e2) => {
-                let mut vars = e1.vars();
-                let mut e2_vars = e2.vars();
-                vars.extend(e2_vars.drain());
-                vars
-            },
-            Expr::TLam(_, ref e) => {
-                e.vars()
-            },
-            Expr::TApp(ref e, _) => {
-                e.vars()
-            },
-            Expr::Let(ref x, _, ref e1, ref e2) => {
-                let mut vars = e1.vars();
-                let mut e2_vars = e2.vars();
-                vars.extend(e2_vars.drain());
-                vars.insert(x.clone());
-                vars
-            },
-            Expr::TLet(_, _, ref e) => {
-                e.vars()
-            }
-        }
-    }
-
     /// Returns a set the free type variables contained in `self`
     fn free_type_vars(&self) -> HashSet<Id> {
         match *self {
@@ -487,7 +353,7 @@ impl Expr {
                 HashSet::new()
             },
             Expr::Lam(_, ref t, ref e) => {
-                let mut vars = t.vars();
+                let mut vars = t.free_vars();
                 let mut e_vars = e.free_type_vars();
                 vars.extend(e_vars.drain());
                 vars
@@ -505,12 +371,12 @@ impl Expr {
             },
             Expr::TApp(ref e, ref t) => {
                 let mut vars = e.free_type_vars();
-                let mut t_vars = e.vars();
+                let mut t_vars = e.free_vars();
                 vars.extend(t_vars.drain());
                 vars
             },
             Expr::Let(_, ref t, ref e1, ref e2) => {
-                let mut vars = t.vars();
+                let mut vars = t.free_vars();
                 let mut e1_vars = e1.free_type_vars();
                 let mut e2_vars = e2.free_type_vars();
                 vars.extend(e1_vars.drain());
@@ -518,57 +384,10 @@ impl Expr {
                 vars
             },
             Expr::TLet(ref X, ref t, ref e) => {
-                let mut vars = t.vars();
+                let mut vars = t.free_vars();
                 let mut e_vars = e.free_type_vars();
                 e_vars.remove(X);
                 vars.extend(e_vars.drain());
-                vars
-            }
-        }
-    }
-
-    /// Returns a set containing all of the type variables contained in `self`
-    fn type_vars(&self) -> HashSet<Id> {
-        match *self {
-            Expr::Var(_) => {
-                HashSet::new()
-            },
-            Expr::Lam(_, ref t, ref e) => {
-                let mut vars = t.vars();
-                let mut e_vars = e.type_vars();
-                vars.extend(e_vars.drain());
-                vars
-            },
-            Expr::App(ref e1, ref e2) => {
-                let mut vars = e1.type_vars();
-                let mut e2_vars = e2.type_vars();
-                vars.extend(e2_vars.drain());
-                vars
-            },
-            Expr::TLam(ref X, ref e) => {
-                let mut vars = e.type_vars();
-                vars.insert(X.clone());
-                vars
-            },
-            Expr::TApp(ref e, ref t) => {
-                let mut vars = e.type_vars();
-                let mut t_vars = e.vars();
-                vars.extend(t_vars.drain());
-                vars
-            },
-            Expr::Let(_, ref t, ref e1, ref e2) => {
-                let mut vars = t.vars();
-                let mut e1_vars = e1.type_vars();
-                let mut e2_vars = e2.type_vars();
-                vars.extend(e1_vars.drain());
-                vars.extend(e2_vars.drain());
-                vars
-            },
-            Expr::TLet(ref X, ref t, ref e) => {
-                let mut vars = t.vars();
-                let mut e_vars = e.type_vars();
-                vars.extend(e_vars.drain());
-                vars.insert(X.clone());
                 vars
             }
         }
