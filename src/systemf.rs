@@ -283,6 +283,7 @@ impl Expr {
                 Expr::TApp(Box::new(e1.subst(e,x)), t.clone())
             },
             Expr::Let(ref y,ref t,ref e1,ref e2) => {
+                let new_e1 = e1.subst(e, x);
                 // Unclear
                 unimplemented!()
             },
@@ -308,8 +309,7 @@ impl Expr {
                 if *X == from {
                     self.clone()
                 } else {
-                    // FIXME: Do I need to worry about the fvs of `to` here?
-                    Expr::TLam(X.clone(), Box::new(e1.subst_type(to,from)))
+                    unimplemented!()
                 }
             },
             Expr::TApp(ref e1,ref t) => {
@@ -318,11 +318,50 @@ impl Expr {
                 Expr::TApp(Box::new(new_e1), Box::new(new_t))
             },
             Expr::Let(ref y,ref t,ref e1,ref e2) => {
-                unimplemented!()
+                let new_t = t.subst(to, from);
+                let new_e1 = e1.subst_type(to, from);
+                let new_e2 = e2.subst_type(to, from);
+                Expr::Let(y.clone(), Box::new(new_t), Box::new(new_e1), Box::new(new_e2))
             },
             Expr::TLet(ref X,ref t,ref e1) => {
-                unimplemented!()
+                let new_t = t.subst(to, from);
+                if *X == from {
+                    Expr::TLet(X.clone(), Box::new(new_t), e1.clone())
+                }
+                else {
+                    unimplemented!()
+                }
             },
         }
+    }
+
+    /// Returns an identical expression with expression variable `var` renamed into `into` 
+    fn rename(&self, var: &str, into: &str) -> Expr {
+        unimplemented!()
+    }
+
+    /// Returns an identical expression with type variable `var` renamed into `into` 
+    fn rename_type(&self, var: &str, into: &str) -> Expr {
+        unimplemented!()
+    }
+
+    /// Returns a set the free variables contained in `self`
+    fn free_vars(&self) -> HashSet<Id> {
+        unimplemented!()
+    }
+
+    /// Returns a set containing all of the variables contained in `self`
+    fn vars(&self) -> HashSet<Id> {
+        unimplemented!()
+    }
+
+    /// Returns a set the free type variables contained in `self`
+    fn free_type_vars(&self) -> HashSet<Id> {
+        unimplemented!()
+    }
+
+    /// Returns a set containing all of the type variables contained in `self`
+    fn type_vars(&self) -> HashSet<Id> {
+        unimplemented!()
     }
 }
