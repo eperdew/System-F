@@ -1,4 +1,4 @@
-use ::systemf::Type::*;
+use systemf::Type::*;
 
 #[test]
 fn test_eq1() {

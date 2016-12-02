@@ -1,0 +1,1 @@
+Lambda A. lambda x: A. lambda y: A. y

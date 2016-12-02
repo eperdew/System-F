@@ -1,6 +1,6 @@
-pub mod eval;
-pub mod typecheck;
-pub mod types;
+mod eval;
+mod typecheck;
+mod types;
 
 use ::parser;
 use std::fs::File;

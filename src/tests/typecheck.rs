@@ -1,4 +1,4 @@
-use ::systemf::*;
+use systemf::{Type,Expr};
 use ::tests::*;
 
 #[test]
@@ -74,6 +74,51 @@ fn test4_typecheck() {
         Box::new(Type::Fun(
             Box::new(Type::Var(String::from("X"))),
             Box::new(Type::Var(String::from("X"))))));
+
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
+}
+
+#[test]
+fn almost_omega_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/almost_omega.f");
+
+    let result = expr.type_check();
+
+    let expected = Type::Fun(
+        Box::new(Type::Forall(String::from("X"),
+        Box::new(Type::Fun(
+            Box::new(Type::Var(String::from("X"))),
+            Box::new(Type::Var(String::from("X"))))))),
+        Box::new(Type::Forall(String::from("X"),
+        Box::new(Type::Fun(
+            Box::new(Type::Var(String::from("X"))),
+            Box::new(Type::Var(String::from("X"))))))));
+
+    if let Ok(res) = result {
+        assert_eq!(res, expected);
+    } else {
+        assert!(false);
+    }
+}
+
+#[test]
+fn bool_typecheck() {
+    let expr: Expr = load_and_parse_expr("tests/bool.f");
+
+    let result = expr.type_check();
+
+    let expected = Type::Forall("A".to_string(),
+        Box::new(Type::Fun(
+            Box::new(Type::Var("A".to_string())),
+            Box::new(Type::Fun(
+                Box::new(Type::Var("A".to_string())),
+                Box::new(Type::Var("A".to_string()))
+            ))
+        )));
 
     if let Ok(res) = result {
         assert_eq!(res, expected);

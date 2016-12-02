@@ -1,6 +1,6 @@
-#![feature(plugin)]
+//#![feature(plugin)]
 
-#![plugin(clippy)]
+// #![plugin(clippy)]
 
 extern crate argparse;
 
@@ -10,9 +10,7 @@ pub mod systemf;
 pub mod parser;
 pub mod tests;
 
-use systemf::Expr;
 use tests::load_and_parse_expr;
-use std::io::Write;
 
 fn main() {
     let mut filename: Option<String> = None;
@@ -32,8 +30,6 @@ fn main() {
             "The file to evaluate");
         ap.parse_args_or_exit();
     }
-
-    typecheck = eval;
 
     if let Some(name) = filename {
         let e = load_and_parse_expr(&name);
@@ -60,7 +56,7 @@ fn main() {
             let res = e.eval();
             match res {
                 Ok(r) => {
-                    println!("\nResult:\n\t{}\n", r);
+                    // println!("\nResult:\n\t{}\n", r);
                 },
                 Err(e) => {
                     println!("Encountered error during evaluation (this shouldn't happen): {}", e)

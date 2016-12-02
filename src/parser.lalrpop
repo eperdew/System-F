@@ -1,6 +1,4 @@
-use std::str::FromStr;
 use systemf::{Type, Expr};
-use std::rc::Rc;
 
 #[LALR]
 grammar;

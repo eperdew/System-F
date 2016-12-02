@@ -1,9 +1,9 @@
+#![allow(non_snake_case)]
+
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::borrow::BorrowMut;
 use std::fmt;
 use std::fmt::Display;
-use std::cmp;
 
 type Id = String;
 
@@ -179,7 +179,7 @@ impl Expr {
             Expr::App(ref e1, ref e2) => {
                 let v1 = e1.eval()?;
                 let v2 = e2.eval()?;
-                if let Expr::Lam(x,t,e3) = v1 {
+                if let Expr::Lam(x,_,e3) = v1 {
                     let new_expr = e3.subst(&v2, &x);
                     new_expr.eval()
                 } else {
@@ -340,7 +340,7 @@ impl Expr {
 
     fn subst_type(&self, to: &Type, from: &str) -> Expr {
         match *self {
-            Expr::Var(ref y) => {
+            Expr::Var(_) => {
                 self.clone()
             },
             Expr::Lam(ref y,ref t,ref e1) => {

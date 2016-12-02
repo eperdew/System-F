@@ -1,4 +1,3 @@
-use ::systemf::Expr;
 use ::tests::*;
 
 #[test]
@@ -7,8 +6,6 @@ fn test1_eval() {
     let sol:  Expr = load_and_parse_expr("tests/test1_sol.f");
 
     let result = expr.eval().unwrap();
-
-    println!("Test1:\n\nExpected: {}\nGot: {}\n\n", sol, result.clone());
 
     assert_eq!(result, sol);
 }
@@ -27,6 +24,16 @@ fn test2_eval() {
 fn test3_eval() {
     let expr: Expr = load_and_parse_expr("tests/test3.f");
     let sol:  Expr = load_and_parse_expr("tests/test3_sol.f");
+
+    let result = expr.eval();
+
+    assert_eq!(result.unwrap(), sol);
+}
+
+#[test]
+fn bool_eval() {
+    let expr: Expr = load_and_parse_expr("tests/bool.f");
+    let sol:  Expr = load_and_parse_expr("tests/bool_sol.f");
 
     let result = expr.eval();
 
