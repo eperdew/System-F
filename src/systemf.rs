@@ -25,27 +25,11 @@ fn fresh_var_like(x: &Id, vars: HashSet<Id>) -> Id {
 }
 
 #[derive(Debug)]
-pub enum EvaluationError {
-    UnboundVariable(String),
-    IllformedExpression,
-}
-
-#[derive(Debug)]
 pub enum TypeError {
     UnboundVariable(String),
     UnboundTypeVariable(String),
     IllegalApplication,
     IllegalTypeApplication,
-}
-
-impl fmt::Display for EvaluationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::EvaluationError::*;
-        match *self {
-            UnboundVariable(ref id) => write!(f, "Encountered unbound variable: {}", id),
-            IllformedExpression => write!(f, "Illformed expression"),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -169,30 +153,40 @@ impl Display for Expr {
 }
 
 impl Expr {
-    /// Returns the normal form of `self` under call-by-value semantics
-    pub fn eval(&self) -> Result<Expr,EvaluationError> {
+    /// Returns the normal form of `self` using applicative order.
+    ///
+    /// Returns the expression unchanged if there are no defined semantics.
+    pub fn eval(&self) -> Expr {
         match *self {
             Expr::Var(ref x) => {
-                Err(EvaluationError::UnboundVariable(x.clone()))
+                self.clone()
             },
-            Expr::Lam(_,_,_) | Expr::TLam(_,_) => Ok(self.clone()),
+            Expr::Lam(ref x, ref t, ref e) => {
+                let v = e.eval();
+                Expr::Lam(x.clone(), t.clone(), Box::new(v))
+            },
+            Expr::TLam(ref X, ref e) => {
+                let v = e.eval();
+                Expr::TLam(X.clone(), Box::new(v))
+            },
             Expr::App(ref e1, ref e2) => {
-                let v1 = e1.eval()?;
-                let v2 = e2.eval()?;
-                if let Expr::Lam(x,_,e3) = v1 {
-                    let new_expr = e3.subst(&v2, &x);
-                    new_expr.eval()
-                } else {
-                    Err(EvaluationError::IllformedExpression)
+                let v1 = e1.eval();
+                let v2 = e2.eval();
+                match v1 {
+                    Expr::Lam(x,_,e3) => {
+                        e3.subst(&v2, &x).eval()
+                    },
+                    _ => self.clone()
                 }
             },
             Expr::TApp(ref e, ref t) => {
-                let v = e.eval()?;
-                if let Expr::TLam(X,e) = v {
-                    let new_expr = e.subst_type(t, &X);
-                    new_expr.eval()
-                } else {
-                    Err(EvaluationError::IllformedExpression)
+                let v = e.eval();
+                match v {
+                    Expr::TLam(X,e1) => {
+                        let new_expr = e1.subst_type(t, &X);
+                        new_expr.eval()
+                    },
+                    _ => self.clone()
                 }
             },
             Expr::Let(ref x, ref t, ref e1, ref e2) => {
@@ -204,11 +198,7 @@ impl Expr {
                     e1.clone()).eval()
             },
             Expr::TLet(ref X, ref t, ref e) => {
-                Expr::TApp(
-                    Box::new(Expr::TLam(
-                        X.clone(),
-                        e.clone())),
-                    t.clone()).eval()
+                e.subst_type(t, X).eval()
             },
         }
     }

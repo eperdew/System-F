@@ -54,14 +54,7 @@ fn main() {
 
         if eval {
             let res = e.eval();
-            match res {
-                Ok(r) => {
-                    // println!("\nResult:\n\t{}\n", r);
-                },
-                Err(e) => {
-                    println!("Encountered error during evaluation (this shouldn't happen): {}", e)
-                }
-            }
+            println!("\nResult:\n\t{}\n", res);
         }
     }
 }
